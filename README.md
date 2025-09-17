@@ -280,6 +280,103 @@ await verify(productService)
     .url(newValue: .value(nil)).setCalledEventually(.once)
 ```
 
+## Network Simulation
+
+Mockable provides utilities to simulate network latency and variable transmission rates for async functions and streaming data, enabling realistic previews and testing scenarios without blocking the main thread.
+
+### Fixed Delays for Async Functions
+
+Add artificial delays to async function mocks to simulate network latency:
+
+```swift
+// Set up return value
+given(mock)
+    .fetchUser(id: .any)
+    .willReturn(.johnDoe)
+
+// Add delay using the action system
+when(mock)
+    .fetchUser(id: .any)
+    .perform(AsyncMockDelay.action(.milliseconds(350)))
+```
+
+### Variable Delays
+
+Create more realistic network simulations with jittered delays:
+
+```swift
+// Simulate variable latency between 200-600ms
+when(mock)
+    .fetchUser(id: .any)
+    .perform(AsyncMockDelay.action(.milliseconds(200)))
+```
+
+### Streaming Data Delays
+
+For `AsyncSequence` return types, simulate both connection delays and per-element transmission delays:
+
+```swift
+// Delay subscription (connection establishment)
+let delayedStream = myAsyncSequence
+    .delaySubscription(by: .milliseconds(150))
+
+given(mock)
+    .eventsStream()
+    .willReturn(delayedStream)
+
+// Delay each element (slow transmission)
+let slowStream = myAsyncSequence
+    .delayEach(by: .milliseconds(50))
+
+// Combine both delays
+let realisticStream = myAsyncSequence
+    .delay(subscription: .milliseconds(150), elements: .milliseconds(50))
+```
+
+### SwiftUI Preview Integration
+
+Use delay simulation in SwiftUI previews to test loading states and user experience:
+
+```swift
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        let mockService = MockUserService()
+        
+        given(mockService)
+            .fetchUser(id: .any)
+            .willReturn(.previewUser)
+        
+        when(mockService)
+            .fetchUser(id: .any)
+            .perform(AsyncMockDelay.action(.milliseconds(2000))) // Slow network simulation
+        
+        return ContentView()
+            .environmentObject(mockService)
+    }
+}
+```
+
+### Important Notes
+
+- **Async-only**: All delays use async sleep and never block the main thread
+- **Cancellable**: Delays are fully cancellable if the calling task is cancelled
+- **Clock-injectable**: Use custom clocks for deterministic testing
+- **Preview-friendly**: Safe to use in SwiftUI previews without freezing
+
+### Custom Timing Logic
+
+For complex scenarios, create custom producers with timing behavior:
+
+```swift
+given(mock)
+    .fetchData()
+    .willProduce { 
+        // Custom timing logic can be implemented here
+        // This producer runs in the async context
+        return mockData
+    }
+```
+
 ### Relaxed Mode
 By default, you must specify a return value for all requirements; otherwise, a fatal error will be thrown. The reason for this is to aid in the discovery (and thus the verification) of every called function when writing unit tests. 
 
